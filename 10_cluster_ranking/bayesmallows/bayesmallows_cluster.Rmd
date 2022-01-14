@@ -1,0 +1,137 @@
+---
+title: "Clustering of employer expectancies with BayesMallows"
+author: "Christoph Krausser"
+date: "1/14/2022"
+output: html_document
+---
+Hypothesizing that we may not need more than 10 clusters to find a useful partitioning of the assessors, we start by doing test runs with 1, 3, 5, and 10 mixture components in order to assess convergence. We set the number of Monte Carlo samples to 5,000, and since this is a test run, we do not save cluster assignments nor within-cluster distances from each MCMC iteration.
+
+```{r eval=FALSE}
+#### SETUP ####
+require(BayesMallows)
+require(parallel)
+
+#### PARAMETERS ####
+cores <- 2 # Number of cpu cores for parallel execution
+clusters <- c(1, 3, 5, 10) # Clusters for test run
+nmc <- 5000 # Monte Carlo samples
+
+cl <- makeCluster(cores)
+
+mat.ranking.bm_test <- compute_mallows_mixtures(n_clusters = clusters,
+                                rankings = mat.ranking, 
+                                nmc = nmc,
+                                save_clus = FALSE, 
+                                include_wcd = FALSE, 
+                                cl = cl
+)
+
+stopCluster(cl)
+```
+
+## Convergence diagnostics
+
+The function assess_convergence automatically creates a grid plot when given an object of class BayesMallowsMixtures, so we can check the convergence of a with the command:
+
+```{r}
+assess_convergence(mat.ranking.bm_test)
+```
+
+The function assess_convergence automatically creates a grid plot when given an object of class BayesMallowsMixtures, so we can check the convergence of a with the command:
+
+```{r}
+assess_convergence(mat.ranking.bm_test, parameter = "cluster_probs")
+```
+
+The plot indicates a good mixing after a few thousand iterations.
+
+## Deciding on the number of mixtures
+
+Given the convergence assessment of the previous section, we are fairly confident that a burn-in of 5,000 is sufficient. We run 95,000 additional iterations, and try from 1 to 10 mixture components. Our goal is now to determine the number of mixture components to use, and in order to create an elbow plot. 
+
+```{r eval=FALSE}
+#### PARAMETERS ####
+cores <- 2 # Number of cpu cores for parallel execution
+clusters <- 20 # Number of clusters 
+burn_in <- 5000 # Burn-in
+nmc <- 95000 # Monte Carlo samples
+
+
+cl <- makeCluster(cores)
+
+mat.ranking.bmm <- compute_mallows_mixtures(n_clusters = 1:clusters, 
+                                rankings = mat.ranking,
+                                nmc = (burn_in+nmc), 
+                                rho_thinning = 10,
+                                save_clus = FALSE,
+                                include_wcd = TRUE, 
+                                verbose = TRUE,
+                                cl = cl
+)
+
+stopCluster(cl)
+```
+```{r}
+plot_elbow(mat.ranking.bmm, burnin = 5000) # Create elbow plot
+```
+
+The resulting elbow plot is a notched boxplot, for which upper and lower whiskers represent approximate 95 % confidence intervals. Although not clear-cut, we see that the within-cluster sum of distances levels off at around 3 clusters, and hence we choose to use 3 clusters in our model.
+
+## Posterior distributions
+
+Having chosen 3 mixture components, we go on to fit a final model, still running 95,000 iterations after burnin. This time we call compute_mallows and set n_clusters = 3.
+
+```{r eval=FALSE}
+#### PARAMETERS ####
+clusters <- 3 # Number of final clusters 
+burn_in <- 5000 # Burn-in
+nmc <- 95000 # Monte Carlo samples e.g. 95000
+
+mat.ranking.bm <- compute_mallows(rankings = mat.ranking, 
+                          n_clusters = clusters, 
+                          save_clus = TRUE,
+                          clus_thin = 10, 
+                          nmc = (burn_in+nmc), 
+                          rho_thinning = 10, 
+                          verbose = TRUE
+)
+
+mat.ranking.bm$burnin <- burn_in # Set bun-in
+```
+
+We can plot the posterior distributions of α and ρ in each cluster using plot.BayesMallows:
+
+```{r}
+assess_convergence(mat.ranking.bm)
+```
+
+```{r}
+assess_convergence(mat.ranking.bm, parameter = "rho", items = 1:5)
+```
+
+We can also show the posterior distributions of the cluster probabilities, using:
+
+```{r}
+plot(mat.ranking.bm, parameter = "cluster_probs")
+```
+
+Using the argument parameter = "cluster_assignment", we can visualize the posterior probability
+for each assessor of belonging to each cluster:
+
+```{r}
+plot(mat.ranking.bm, parameter = "cluster_assignment")
+```
+
+The underlying numbers can be obtained using the function assign_cluster.
+
+```{r}
+print(mat.ranking.bm_res[["assignment_prop"]])
+```
+
+```{r}
+print.data.frame(head(mat.ranking.bm_res[["consensus"]], 5))
+```
+
+```{r}
+mat.ranking.bm_res[["assignments_simple"]]
+```

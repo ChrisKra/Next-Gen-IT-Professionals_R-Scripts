@@ -1,0 +1,50 @@
+---
+title: "Analysis of employer expectancies with BayesMallows"
+author: "Christoph Krausser"
+date: "1/14/2022"
+output: html_document
+---
+First, we do a test run to check convergence of the MCMC algorithm, and then get trace plots with assess_convergence.
+```{r eval=FALSE}
+require(BayesMallows)
+
+mat.ranking.bm_test <- compute_mallows(mat.ranking)
+```
+```{r}
+assess_convergence(mat.ranking.bm_test)
+```
+
+The algorithm seems to be mixing well after around 150 iterations.
+
+Next, we study the convergence of ρ. To avoid overly complex plots, we plot the first 5 criteria only, by specifying this in the items argument.
+```{r}
+assess_convergence(mat.ranking.bm_test, parameter = "rho", items = 1:5)
+```
+
+The plot shows that the MCMC algorithm seems to have converged after around 500 iterations.
+
+From the trace plots, we decide to discard the first 1,000 MCMC samples as burn-in. We rerun the algorithm to get 500,000 samples after burn-in. The object bmm_visual has S3 class "BayesMallows", so we plot the posterior distribution of a with plot.BayesMallows.
+```{r eval=FALSE}
+burn_in <- 1000
+nmc <- 500000
+
+mat.ranking.bm_visual <- compute_mallows(mat.ranking, nmc = (nmc+burn_in), verbose = TRUE)
+mat.ranking.bm_visual$burnin <- burn_in # Set burn-in
+```
+```{r}
+plot(mat.ranking.bm_visual)
+```
+
+The posterior mass is symmetrically centered between 1.6 and 2.0, with a mean around 1.8.
+
+We can also get posterior credible intervals for α using compute_posterior_intervals, which returns both highest posterior density intervals (HPDI) and central intervals:
+```{r}
+compute_posterior_intervals(mat.ranking.bm_visual, decimals = 1L)
+```
+
+Next, we can go on to study the posterior distribution of ρ. To show all criteria, we explicitly set items = 1:12:
+```{r}
+plot(mat.ranking.bm_visual, parameter = "rho", items = 1:12)
+```
+
+Most criteria such as flexible work arrangements, salery, work environment or working on interesting tasks have highly peaked posterior distributions, indicating low uncertainty about their ranking.
