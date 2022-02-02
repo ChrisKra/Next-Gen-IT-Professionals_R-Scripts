@@ -6,13 +6,13 @@ output: html_document
 ---
 Hypothesizing that we may not need more than 10 clusters to find a useful partitioning of the assessors, we start by doing test runs with 1, 3, 5, and 10 mixture components in order to assess convergence. We set the number of Monte Carlo samples to 5,000, and since this is a test run, we do not save cluster assignments nor within-cluster distances from each MCMC iteration.
 
-```{r eval=FALSE}
+```{r convergence, eval = FALSE}
 #### SETUP ####
 require(BayesMallows)
 require(parallel)
 
 #### PARAMETERS ####
-cores <- 2 # Number of cpu cores for parallel execution
+cores <- 3 # Number of cpu cores for parallel execution
 clusters <- c(1, 3, 5, 10) # Clusters for test run
 nmc <- 5000 # Monte Carlo samples
 
@@ -33,13 +33,13 @@ stopCluster(cl)
 
 The function assess_convergence automatically creates a grid plot when given an object of class BayesMallowsMixtures, so we can check the convergence of a with the command:
 
-```{r}
+```{r convergence_a, eval = FALSE}
 assess_convergence(mat.ranking.bm_test)
 ```
 
 The function assess_convergence automatically creates a grid plot when given an object of class BayesMallowsMixtures, so we can check the convergence of a with the command:
 
-```{r}
+```{r convergence_post, eval = FALSE}
 assess_convergence(mat.ranking.bm_test, parameter = "cluster_probs")
 ```
 
@@ -49,10 +49,10 @@ The plot indicates a good mixing after a few thousand iterations.
 
 Given the convergence assessment of the previous section, we are fairly confident that a burn-in of 5,000 is sufficient. We run 95,000 additional iterations, and try from 1 to 10 mixture components. Our goal is now to determine the number of mixture components to use, and in order to create an elbow plot. 
 
-```{r eval=FALSE}
+```{r mixtures, eval = FALSE}
 #### PARAMETERS ####
-cores <- 2 # Number of cpu cores for parallel execution
-clusters <- 20 # Number of clusters 
+cores <- 3 # Number of cpu cores for parallel execution
+clusters <- 10 # Number of clusters 
 burn_in <- 5000 # Burn-in
 nmc <- 95000 # Monte Carlo samples
 
@@ -71,7 +71,7 @@ mat.ranking.bmm <- compute_mallows_mixtures(n_clusters = 1:clusters,
 
 stopCluster(cl)
 ```
-```{r}
+```{r plot_elbow, eval = FALSE}
 plot_elbow(mat.ranking.bmm, burnin = 5000) # Create elbow plot
 ```
 
@@ -81,51 +81,73 @@ The resulting elbow plot is a notched boxplot, for which upper and lower whisker
 
 Having chosen 3 mixture components, we go on to fit a final model, still running 95,000 iterations after burnin. This time we call compute_mallows and set n_clusters = 3.
 
-```{r eval=FALSE}
-#### PARAMETERS ####
-clusters <- 3 # Number of final clusters 
-burn_in <- 5000 # Burn-in
-nmc <- 95000 # Monte Carlo samples e.g. 95000
-
-mat.ranking.bm <- compute_mallows(rankings = mat.ranking, 
-                          n_clusters = clusters, 
-                          save_clus = TRUE,
-                          clus_thin = 10, 
-                          nmc = (burn_in+nmc), 
-                          rho_thinning = 10, 
-                          verbose = TRUE
-)
-
-mat.ranking.bm$burnin <- burn_in # Set bun-in
+```{r final_run}
+#### SETUP ####
+require(tidyr)
+require(dplyr)
+# 
+# #### PARAMETERS ####
+# clusters <- 3 # Number of final clusters 
+# burn_in <- 5000 # Burn-in
+# nmc <- 95000 # Monte Carlo samples e.g. 95000
+# 
+# mat.ranking.bm <- compute_mallows(rankings = mat.ranking, 
+#                           n_clusters = clusters, 
+#                           save_clus = TRUE,
+#                           clus_thin = 10, 
+#                           nmc = (burn_in+nmc), 
+#                           rho_thinning = 10, 
+#                           verbose = TRUE
+# )
+# 
+# mat.ranking.bm$burnin <- burn_in # Set bun-in
 ```
 
 We can plot the posterior distributions of α and ρ in each cluster using plot.BayesMallows:
 
-```{r}
+```{r convergence2_a}
+require(BayesMallows)
 assess_convergence(mat.ranking.bm)
 ```
 
-```{r}
+```{r convergence2_r}
 assess_convergence(mat.ranking.bm, parameter = "rho", items = 1:5)
 ```
 
 We can also show the posterior distributions of the cluster probabilities, using:
 
-```{r}
+```{r post_dist}
 plot(mat.ranking.bm, parameter = "cluster_probs")
 ```
 
 Using the argument parameter = "cluster_assignment", we can visualize the posterior probability
 for each assessor of belonging to each cluster:
 
-```{r}
+```{r cluster_ass_plot}
 plot(mat.ranking.bm, parameter = "cluster_assignment")
 ```
 
 The underlying numbers can be obtained using the function assign_cluster.
 
+```{r, include=FALSE}
+# source("~/BA/scripts/10_cluster_ranking/bayesmallows/create_results_function.R")
+# mat.ranking.bm_res <- createResults(mat.ranking.bm)
+```
+
+```{r}
+print(mat.ranking.bm_res[["assignment_num"]])
+```
+
 ```{r}
 print(mat.ranking.bm_res[["assignment_prop"]])
+```
+
+```{r}
+print(mat.ranking.bm_res[["assignment_probSum"]])
+```
+
+```{r}
+mat.ranking.bm_res[["assignments"]] %>% group_by(map_cluster, cluster) %>% dplyr::summarise(mean=mean(probability))
 ```
 
 ```{r}
@@ -134,4 +156,591 @@ print.data.frame(head(mat.ranking.bm_res[["consensus"]], 5))
 
 ```{r}
 mat.ranking.bm_res[["assignments_simple"]]
+```
+
+```{r, include=FALSE}
+require(plyr)
+require(dplyr)
+require(gtsummary)
+
+dem_by_cluster <- mat.ranking.bm_res[["assignment_mapped"]] %>% 
+  select(cluster, 
+         degree, 
+         course, 
+         semester, 
+         work, 
+         age, 
+         gender, 
+         university
+         ) %>% 
+  dplyr::rename(
+    Degree = degree, 
+    Course = course, 
+    Semester = semester, 
+    Work = work, 
+    Age = age, 
+    Gender = gender, 
+    University = university
+  ) %>%
+  mutate(Course = revalue(Course, c("Data Engineering/ Data Science (or similar)"="Technically oriented", 
+                                    "Informatics / Computer Science (or similar)"="Technically oriented", 
+                                    "Informatics: Games Engineering"="Technically oriented",
+                                    "Mathematics (or similar)"="Technically oriented",
+                                    "Physics (or similar)"="Technically oriented",
+                                    "Robotics, Cognition, Intelligence"="Technically oriented",
+                                    "Human-Computer-Interaction"="Mixed",
+                                    "Information Systems"="Mixed",
+                                    "Media Informatics"="Mixed",
+                                    "Teacher Training: Naturwissenschaftliche Bildung/Berufliche Bildung (de)"="Mixed",
+                                    "Other"="Mixed",
+                                    "Finance and Information Management (FIM)"="Mangement oriented",
+                                    "Technology & Management (oder Ähnliches)"="Mangement oriented"
+                                    ))) %>%
+  mutate(Semester = revalue(Semester, c("1"="1.-2. Semester", 
+                                    "2"="1.-2. Semester", 
+                                    "3"="3.-4. Semester", 
+                                    "4"="3.-4. Semester", 
+                                    "5"="5.-6. Semester", 
+                                    "6"="5.-6. Semester",
+                                    ">6"="7.-... Semester"
+  ))) %>%
+  mutate(Degree = factor(Degree, levels = c("Bachelor's Degree", "Master's Degree", "Doctoral Degree", "Other"))) %>% 
+  mutate(Course = factor(Course, levels = c("Technically oriented", "Mixed", "Mangement oriented"))) %>% 
+  mutate(Work = factor(Work, levels = c("Yes", "No", "N/A"))) %>% 
+  mutate(University = factor(University, levels = c("Technical University of Munich (TUM)", "Ludwig Maximilian University of Munich (LMU)", "Munich University of Applied Sciences (HM)", "Other"))) %>% 
+  tbl_summary(by = cluster) %>% 
+  add_p(test = everything() ~ "fisher.test", 
+        test.args = list(Age ~ list(workspace = 2e8, simulate.p.value=TRUE))) %>%
+  separate_p_footnotes() 
+```
+
+```{r}
+dem_by_cluster
+
+write.csv(as_tibble(dem_by_cluster))
+```
+
+```{r}
+mat.ranking.bm_res[["assignment_dem"]]@degree.abs
+```
+
+```{r}
+mat.ranking.bm_res[["assignment_dem"]]@degree.rel
+```
+
+```{r, include=FALSE}
+require(stringr)
+require(ggplot2)
+require(reshape2)
+```
+
+```{r, echo=FALSE}
+var <- "degree"
+
+ggplot(melt(
+  as.matrix(
+    attributes(mat.ranking.bm_res[["assignment_dem"]])[[paste(var, ".rel", sep = "")]]
+    ), 
+  varnames=c(var, 'Cluster')), 
+  aes_string(var,"value",fill="Cluster"))+
+  geom_bar(position="dodge",
+           stat="identity"
+           )+
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))+
+  scale_fill_manual(values=c("#34495e", "#3498db", "#1abc9c", "#2ecc71", "#f1c40f", "#e67e22", "#e74c3c"))+
+  labs(title = str_to_title(var))+
+  xlab(str_to_title(var))+
+  ylab("Percentage")
+
+rm(var)
+```
+
+```{r}
+mat.ranking.bm_res[["assignment_dem"]]@course.abs
+```
+
+```{r}
+mat.ranking.bm_res[["assignment_dem"]]@course.rel
+```
+
+```{r, echo=FALSE}
+var <- "course"
+
+ggplot(melt(
+  as.matrix(
+    attributes(mat.ranking.bm_res[["assignment_dem"]])[[paste(var, ".rel", sep = "")]]
+    ), 
+  varnames=c(var, 'Cluster')), 
+  aes_string(var,"value",fill="Cluster"))+
+  geom_bar(position="dodge",
+           stat="identity"
+           )+
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))+
+  scale_fill_manual(values=c("#34495e", "#3498db", "#1abc9c", "#2ecc71", "#f1c40f", "#e67e22", "#e74c3c"))+
+  labs(title = str_to_title(var))+
+  xlab(str_to_title(var))+
+  ylab("Percentage")
+
+rm(var)
+```
+
+```{r}
+mat.ranking.bm_res[["assignment_dem"]]@semester.abs
+```
+
+```{r}
+mat.ranking.bm_res[["assignment_dem"]]@semester.rel
+```
+
+```{r, echo=FALSE}
+var <- "semester"
+
+ggplot(melt(
+  as.matrix(
+    attributes(mat.ranking.bm_res[["assignment_dem"]])[[paste(var, ".rel", sep = "")]]
+    ), 
+  varnames=c(var, 'Cluster')), 
+  aes_string(var,"value",fill="Cluster"))+
+  geom_bar(position="dodge",
+           stat="identity"
+           )+
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))+
+  scale_fill_manual(values=c("#34495e", "#3498db", "#1abc9c", "#2ecc71", "#f1c40f", "#e67e22", "#e74c3c"))+
+  labs(title = str_to_title(var))+
+  xlab(str_to_title(var))+
+  ylab("Percentage")
+
+rm(var)
+```
+
+```{r}
+mat.ranking.bm_res[["assignment_dem"]]@work.abs
+```
+
+```{r}
+mat.ranking.bm_res[["assignment_dem"]]@work.rel
+```
+
+```{r, echo=FALSE}
+var <- "work"
+
+ggplot(melt(
+  as.matrix(
+    attributes(mat.ranking.bm_res[["assignment_dem"]])[[paste(var, ".rel", sep = "")]]
+    ), 
+  varnames=c(var, 'Cluster')), 
+  aes_string(var,"value",fill="Cluster"))+
+  geom_bar(position="dodge",
+           stat="identity"
+           )+
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))+
+  scale_fill_manual(values=c("#34495e", "#3498db", "#1abc9c", "#2ecc71", "#f1c40f", "#e67e22", "#e74c3c"))+
+  labs(title = str_to_title(var))+
+  xlab(str_to_title(var))+
+  ylab("Percentage")
+
+rm(var)
+```
+
+```{r}
+mat.ranking.bm_res[["assignment_dem"]]@age.abs
+```
+
+```{r}
+mat.ranking.bm_res[["assignment_dem"]]@age.rel
+```
+
+```{r, echo=FALSE}
+var <- "age"
+
+ggplot(melt(
+  as.matrix(
+    attributes(mat.ranking.bm_res[["assignment_dem"]])[[paste(var, ".rel", sep = "")]]
+    ), 
+  varnames=c(var, 'Cluster')), 
+  aes_string(var,"value",fill="Cluster"))+
+  geom_bar(position="dodge",
+           stat="identity"
+           )+
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))+
+  scale_fill_manual(values=c("#34495e", "#3498db", "#1abc9c", "#2ecc71", "#f1c40f", "#e67e22", "#e74c3c"))+
+  labs(title = str_to_title(var))+
+  xlab(str_to_title(var))+
+  ylab("Percentage")
+
+rm(var)
+```
+
+```{r}
+mat.ranking.bm_res[["assignment_dem"]]@gender.abs
+```
+
+```{r}
+mat.ranking.bm_res[["assignment_dem"]]@gender.rel
+```
+
+```{r, echo=FALSE}
+var <- "gender"
+
+ggplot(melt(
+  as.matrix(
+    attributes(mat.ranking.bm_res[["assignment_dem"]])[[paste(var, ".rel", sep = "")]]
+    ), 
+  varnames=c(var, 'Cluster')), 
+  aes_string(var,"value",fill="Cluster"))+
+  geom_bar(position="dodge",
+           stat="identity"
+           )+
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))+
+  scale_fill_manual(values=c("#34495e", "#3498db", "#1abc9c", "#2ecc71", "#f1c40f", "#e67e22", "#e74c3c"))+
+  labs(title = str_to_title(var))+
+  xlab(str_to_title(var))+
+  ylab("Percentage")
+
+rm(var)
+```
+
+```{r}
+mat.ranking.bm_res[["assignment_dem"]]@university.abs
+```
+
+```{r}
+mat.ranking.bm_res[["assignment_dem"]]@university.rel
+```
+
+```{r, echo=FALSE}
+var <- "university"
+
+ggplot(melt(
+  as.matrix(
+    attributes(mat.ranking.bm_res[["assignment_dem"]])[[paste(var, ".rel", sep = "")]]
+    ), 
+  varnames=c(var, 'Cluster')), 
+  aes_string(var,"value",fill="Cluster"))+
+  geom_bar(position="dodge",
+           stat="identity"
+           )+
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))+
+  scale_fill_manual(values=c("#34495e", "#3498db", "#1abc9c", "#2ecc71", "#f1c40f", "#e67e22", "#e74c3c"))+
+  labs(title = str_to_title(var))+
+  xlab(str_to_title(var))+
+  ylab("Percentage")
+
+rm(var)
+```
+
+
+```{r, include=FALSE}
+require(ggpubr)
+
+# First and last question
+s <- which(colnames(mat.ranking.bm_res[["assignment_mapped"]]) == "CAM01") # First column
+e <- which(colnames(mat.ranking.bm_res[["assignment_mapped"]]) == "CAE03") # Last column
+
+# Maxmimum answer value (5 for Karriereorientierung 1 and 7 for Karriereorientierung 2)
+maxValue <- 4
+
+nColumns <- (e-s+1)
+df_list <- vector("list", nColumns)
+
+dummy_df <- data.frame(matrix(0, ncol = length(mat.ranking.bm_res[["assignment_num"]]), nrow = maxValue+1))
+colnames(dummy_df) <- rownames(mat.ranking.bm_res[["assignment_num"]])
+rownames(dummy_df) <- c(0:maxValue)
+
+# For each column add list element with df[answer, cluster]
+for(colNum in 1:nColumns) {
+  tmp <- as.data.frame.matrix(t(prop.table(table(
+    mat.ranking.bm_res[["assignment_mapped"]] %>% group_by(cluster) %>% select(s+colNum-1)
+  ), 1)))
+  df_list[[colNum]] <- (bind_rows(dummy_df %>% add_rownames(), tmp %>% add_rownames()) %>% group_by(rowname) %>% summarise_all(sum)) %>% select(-rowname)
+}
+
+# Group individual tables by Factor
+mapping <- data.frame(c(13, 17, 25), c(10, 11, 20), c(8, 9, 22), c(1, 2, 3), c(15, 19, 24), c(14, 18, NA), c(6, 7, 21), c(4, 5, NA), c(12, 16, 23))
+desc <- c("Entrepreneurship", "Technical", "Service", "Managerial", "Lifestyle", "Security-Geographic", "Autonomy", "Security-Job tenure", "Pure challenge")
+
+
+grouped_list <- vector("list", length(desc))
+for(i in 1:length(desc)) {
+  if (!is.na(mapping[3, i])) {
+    grouped_list[[i]] <- (df_list[[mapping[1, i]]] + df_list[[mapping[2, i]]] + df_list[[mapping[3, i]]])/3
+  } else {
+    grouped_list[[i]] <- (df_list[[mapping[1, i]]] + df_list[[mapping[2, i]]])/2
+  }
+  
+  # Export tables as CSV
+  #write.table(round(grouped_list[[i]], 4), file = paste("CSV_exports/CarAnch_", i, "-", str_replace_all(desc[i], "/", "_"), ".csv", sep=""), row.names = FALSE, sep=";")
+}
+
+# Graph settings
+smoothingAmount = 7.5/10
+lineSize = 1.5
+areaAlpha = 0.4
+lineSize = 1.5
+indWidth = 500
+indHeight = 450
+col = 3
+colors = c("#34495e", "#3498db", "#1abc9c", "#2ecc71", "#f1c40f", "#e67e22", "#e74c3c")
+
+# Function to wrap sentences to fit width
+wrap_sentence <- function(string, width) {
+  words <- unlist(strsplit(string, " "))
+  fullsentence <- ""
+  checklen <- ""
+  for(i in 1:length(words)) {
+    checklen <- paste(checklen, words[i])
+    if(nchar(checklen)>(width+1)) {
+      fullsentence <- paste0(fullsentence, "\n")
+      checklen <- ""
+    }
+    fullsentence <- paste(fullsentence, words[i])
+  }
+  fullsentence <- sub("^\\s", "", fullsentence)
+  fullsentence <- gsub("\n ", "\n", fullsentence)
+  return(fullsentence)
+}
+
+plist <- vector("list", length(desc)) # List of all graphs
+
+for(p in 1:length(desc)) {
+  plist[[p]] <- ggplot(melt(
+    as.matrix(grouped_list[[p]]), 
+    varnames=c('Relevance', 'Cluster')), 
+    aes(x=Relevance,y=value,group=Cluster)) + 
+    stat_smooth(geom = 'line', method = 'loess', span = smoothingAmount, aes(color=Cluster), size=lineSize) +
+    stat_smooth(geom = 'area', method = 'loess', span = smoothingAmount, aes(fill=Cluster), alpha=areaAlpha) +
+    scale_x_continuous(labels=c("Not\nimportant", "Slightly\nimportant", "Moderately\nimportant", "Very\nimportant", "Centrally\nimportant")) +
+    labs(x = "Relevance", y = "Percentage") +
+    ggtitle(wrap_sentence(desc[p], 60)) +
+    theme_minimal()+
+    scale_color_manual(values=colors)+
+    scale_fill_manual(values=colors)+
+    theme(plot.margin = margin(1, 1, 0.8, 0.5, "cm"), 
+          axis.text=element_text(size=8),
+          axis.title = element_text(size = 12),
+          plot.title = element_text(hjust = 0.5, vjust = 6, size = 16, face = "bold"))
+  
+  print(paste("Generating graph", p))
+}
+
+# png(file = "Generated_Charts/CarAnch_Charts_Overview.png",width=(col*indWidth), height=(ceiling(length(desc)/col)*indHeight), pointsize = 22)
+
+carAnch_grid <- ggarrange(plotlist = plist, ncol = col, nrow = ceiling(length(desc)/col))
+
+# dev.off()
+
+# Clean up 
+rm(col, colors, wrap_sentence, tmp, plist, dummy_df, df_list, areaAlpha, colNum, e, indHeight, indWidth, lineSize, maxValue, nColumns, p, s, smoothingAmount, desc,i, mapping)
+```
+
+## Career anchors 
+
+```{r, fig.height = 12, fig.width = 16, echo=FALSE}
+print(grouped_list)
+
+print(carAnch_grid)
+```
+
+```{r, include=FALSE}
+require(gtsummary)
+require(dplyr)
+
+s <- which(colnames(mat.ranking.bm_res[["assignment_mapped"]]) == "CAM01") # First column
+
+# Group individual tables by Factor
+mapping <- data.frame(c(13, 17, 25), c(10, 11, 20), c(8, 9, 22), c(1, 2, 3), c(15, 19, 24), c(14, 18, NA), c(6, 7, 21), c(4, 5, NA), c(12, 16, 23))
+desc <- c("Entrepreneurship", "Technical", "Service", "Managerial", "Lifestyle", "Security-Geographic", "Autonomy", "Security-Job tenure", "Pure challange")
+
+carAnch <- data.frame(cluster = mat.ranking.bm_res[["assignment_mapped"]]$cluster)
+
+for(i in 1:length(desc)) {
+  if (!is.na(mapping[3, i])) {
+    carAnch[desc[i]] <- ((as.numeric(unlist(mat.ranking.bm_res[["assignment_mapped"]][mapping[1, i]+s-1])) + 
+                                                  as.numeric(unlist(mat.ranking.bm_res[["assignment_mapped"]][mapping[2, i]+s-1])) + 
+                                                  as.numeric(unlist(mat.ranking.bm_res[["assignment_mapped"]][mapping[3, i]+s-1])))/3)
+  } else {
+    carAnch[desc[i]] <- ((as.numeric(unlist(mat.ranking.bm_res[["assignment_mapped"]][mapping[1, i]+s-1])) + 
+                            as.numeric(unlist(mat.ranking.bm_res[["assignment_mapped"]][mapping[2, i]+s-1])))/2)
+  }
+}
+
+tbl_carAnch <- carAnch %>% 
+  tbl_summary(by=cluster, 
+              type = list("Security-Geographic" ~ "continuous", 
+                          "Security-Job tenure" ~ "continuous"),
+              missing = "no"
+              ) %>% 
+  add_p(test = list(all_continuous() ~ "aov")) %>% 
+  modify_spanning_header(all_stat_cols() ~ "**Cluster**") %>% 
+  modify_header(label = "**Career anchor**")
+
+# Clean up 
+rm(s, mapping, desc, i, carAnch)
+```
+
+```{r, echo=FALSE}
+tbl_carAnch
+```
+
+
+## Boundaryless Carrer Attitudes, Satisfaction with Studies and Identification with IT 
+
+```{r, echo=FALSE}
+assignment_other <- data.frame(mat.ranking.bm_res[["assignment_mapped"]]['cluster'])
+
+# Academic Satisfaction
+assignment_other['Academic Satisfaction'] <- ((
+  as.numeric(unlist(mat.ranking.bm_res[["assignment_mapped"]]['SS01'])) + 
+  as.numeric(unlist(mat.ranking.bm_res[["assignment_mapped"]]['SS02'])) + 
+  as.numeric(unlist(mat.ranking.bm_res[["assignment_mapped"]]['SS03']))
+  )/3)
+
+# Technical Efficacy/ Perception of Hard Skills
+assignment_other['Technical Efficacy'] <- ((
+  as.numeric(unlist(mat.ranking.bm_res[["assignment_mapped"]]['TE01'])) + 
+    as.numeric(unlist(mat.ranking.bm_res[["assignment_mapped"]]['TE02'])) + 
+    as.numeric(unlist(mat.ranking.bm_res[["assignment_mapped"]]['TE03']))
+)/3)
+
+# Turnaway Intention
+assignment_other['Turnaway Intention'] <- ((
+  as.numeric(unlist(mat.ranking.bm_res[["assignment_mapped"]]['TA01'])) + 
+    as.numeric(unlist(mat.ranking.bm_res[["assignment_mapped"]]['TA02'])) + 
+    as.numeric(unlist(mat.ranking.bm_res[["assignment_mapped"]]['TA03'])) + 
+    as.numeric(unlist(mat.ranking.bm_res[["assignment_mapped"]]['TA04']))
+)/4)
+
+# Professional Identification
+assignment_other['Professional Identification'] <- ((
+  as.numeric(unlist(mat.ranking.bm_res[["assignment_mapped"]]['PI01'])) + 
+    as.numeric(unlist(mat.ranking.bm_res[["assignment_mapped"]]['PI02'])) + 
+    as.numeric(unlist(mat.ranking.bm_res[["assignment_mapped"]]['PI03'])) + 
+    as.numeric(unlist(mat.ranking.bm_res[["assignment_mapped"]]['PI04'])) + 
+    as.numeric(unlist(mat.ranking.bm_res[["assignment_mapped"]]['PI05'])) + 
+    as.numeric(unlist(mat.ranking.bm_res[["assignment_mapped"]]['PI06']))
+)/6)
+
+# Perceived Job Alternatives
+assignment_other['Perceived Job Alternatives'] <- ((
+  as.numeric(unlist(mat.ranking.bm_res[["assignment_mapped"]]['PA1'])) + 
+    as.numeric(unlist(mat.ranking.bm_res[["assignment_mapped"]]['PA2'])) + 
+    as.numeric(unlist(mat.ranking.bm_res[["assignment_mapped"]]['PA3'])) + 
+    as.numeric(unlist(mat.ranking.bm_res[["assignment_mapped"]]['PA4']))
+)/4)
+
+## Boundaryless Career Attitudes ##
+
+# Autonomy
+assignment_other['Autonomy'] <- ((
+  as.numeric(unlist(mat.ranking.bm_res[["assignment_mapped"]]['PCS01'])) + 
+    as.numeric(unlist(mat.ranking.bm_res[["assignment_mapped"]]['PCS02'])) + 
+    as.numeric(unlist(mat.ranking.bm_res[["assignment_mapped"]]['PCS03'])) + 
+    as.numeric(unlist(mat.ranking.bm_res[["assignment_mapped"]]['PCS04']))
+)/4)
+
+# Value Driven
+assignment_other['Value Driven'] <- ((
+  as.numeric(unlist(mat.ranking.bm_res[["assignment_mapped"]]['PCV01'])) + 
+    as.numeric(unlist(mat.ranking.bm_res[["assignment_mapped"]]['PCV02'])) + 
+    as.numeric(unlist(mat.ranking.bm_res[["assignment_mapped"]]['PCV03'])) + 
+    as.numeric(unlist(mat.ranking.bm_res[["assignment_mapped"]]['PCV04']))
+)/4)
+
+# Boundaryless Work
+assignment_other['Boundaryless Work'] <- ((
+  as.numeric(unlist(mat.ranking.bm_res[["assignment_mapped"]]['BCM01'])) + 
+    as.numeric(unlist(mat.ranking.bm_res[["assignment_mapped"]]['BCM02'])) + 
+    as.numeric(unlist(mat.ranking.bm_res[["assignment_mapped"]]['BCM03'])) + 
+    as.numeric(unlist(mat.ranking.bm_res[["assignment_mapped"]]['BCM04']))
+)/4)
+
+# Mobility
+assignment_other['Mobility'] <- ((
+  as.numeric(unlist(mat.ranking.bm_res[["assignment_mapped"]]['BCP01R'])) + 
+    as.numeric(unlist(mat.ranking.bm_res[["assignment_mapped"]]['BCP02R'])) + 
+    as.numeric(unlist(mat.ranking.bm_res[["assignment_mapped"]]['BCP03R'])) + 
+    as.numeric(unlist(mat.ranking.bm_res[["assignment_mapped"]]['BCP04R']))
+)/4)
+
+assignment_other %>% tbl_summary(by=cluster) %>% add_p(test = everything() ~ "aov")
+```
+
+### Graphs
+
+```{r, include=FALSE}
+s <- which(colnames(mat.ranking.bm_res[["assignment_mapped"]]) == "PCS01") # First column
+
+# Graph settings
+smoothingAmount = 6/10
+lineSize = 1.5
+areaAlpha = 0.4
+lineSize = 1.5
+indWidth = 500
+indHeight = 450
+col = 3
+colors = c("#34495e", "#3498db", "#1abc9c", "#2ecc71", "#f1c40f", "#e67e22", "#e74c3c")
+
+# Function to wrap sentences to fit width
+wrap_sentence <- function(string, width) {
+  words <- unlist(strsplit(string, " "))
+  fullsentence <- ""
+  checklen <- ""
+  for(i in 1:length(words)) {
+    checklen <- paste(checklen, words[i])
+    if(nchar(checklen)>(width+1)) {
+      fullsentence <- paste0(fullsentence, "\n")
+      checklen <- ""
+    }
+    fullsentence <- paste(fullsentence, words[i])
+  }
+  fullsentence <- sub("^\\s", "", fullsentence)
+  fullsentence <- gsub("\n ", "\n", fullsentence)
+  return(fullsentence)
+}
+
+plist <- vector("list", length(mat.ranking.bm_res[["assignment_mapped"]])-s+1) # List of all graphs
+
+for (i in s:length(mat.ranking.bm_res[["assignment_mapped"]])) {
+  plist[[i-s+1]] <- ggplot(melt(prop.table(table(
+    mat.ranking.bm_res[["assignment_mapped"]] %>% 
+      select(cluster, colnames(mat.ranking.bm_res[["assignment_mapped"]])[i])), 1), 
+    varnames=c('cluster', 'rating')), 
+    aes_string("rating","value",fill="cluster"))+
+    stat_smooth(geom = 'line', method = 'loess', span = smoothingAmount, aes(color=cluster), size=lineSize) +
+    stat_smooth(geom = 'area', method = 'loess', span = smoothingAmount, aes(fill=cluster), alpha=areaAlpha) +
+    # scale_x_continuous(labels=c('Strongly\ndisagree',
+    #                             'Disagree',
+    #                             'Slightly\ndisagree',
+    #                             'Undecided',
+    #                             'Slightly\nagree',
+    #                             'Agree',
+    #                             'Strongly\nagree')) +
+    labs(x = "Relevance", y = "Percentage") +
+    ggtitle(wrap_sentence(colnames(mat.ranking.bm_res[["assignment_mapped"]])[i], 60)) +
+    theme_minimal()+
+    scale_color_manual(values=colors)+
+    scale_fill_manual(values=colors)+
+    theme(plot.margin = margin(1, 1, 0.8, 0.5, "cm"), 
+          axis.text=element_text(size=8),
+          axis.title = element_text(size = 12),
+          plot.title = element_text(hjust = 0.5, vjust = 6, size = 16, face = "bold"))
+  
+  print(paste("Generating graph", i-s+1))
+}
+
+carAnch_grid <- ggarrange(plotlist = plist, ncol = col, nrow = ceiling((length(mat.ranking.bm_res[["assignment_mapped"]])-s+1)/col))
+
+# Clean up 
+rm(plist, areaAlpha, col, colors, i, indHeight, indWidth, lineSize, s, smoothingAmount, wrap_sentence)
+```
+
+```{r, fig.height = 48, fig.width = 16, echo=FALSE}
+print(carAnch_grid)
 ```

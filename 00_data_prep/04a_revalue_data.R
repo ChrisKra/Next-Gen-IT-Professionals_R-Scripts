@@ -30,11 +30,11 @@ likert5im <- c(
 )
 
 likert5tr <- c(
-  'Not at all true'= '-2',
-  'Slightly untrue'= '-1',
-  'Neither untrue nor true'= '0',
-  'Slightly true'= '1',
-  'Completely true'= '2'
+  'Not at all true'= '0',
+  'Slightly untrue'= '1',
+  'Neither untrue nor true'= '2',
+  'Slightly true'= '3',
+  'Completely true'= '4'
 )
 
 # Likert scale belonging to each field
