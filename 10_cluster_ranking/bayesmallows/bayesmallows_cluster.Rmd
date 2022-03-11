@@ -242,15 +242,15 @@ ggplot(melt(
     attributes(mat.ranking.bm_res[["assignment_dem"]])[[paste(var, ".rel", sep = "")]]
     ), 
   varnames=c(var, 'Cluster')), 
-  aes_string(var,"value",fill="Cluster"))+
-  geom_bar(position="dodge",
+  aes_string("Cluster","value",fill=var))+
+  geom_bar(position="fill",
            stat="identity"
-           )+
+  )+
   theme_minimal() +
   theme(plot.title = element_text(hjust = 0.5, face="bold"))+
   scale_fill_manual(values=c("#34495e", "#3498db", "#1abc9c", "#2ecc71", "#f1c40f", "#e67e22", "#e74c3c"))+
   labs(title = str_to_title(var))+
-  xlab(str_to_title(var))+
+  xlab("Cluster")+
   ylab("Percentage")
 
 rm(var)
@@ -272,15 +272,15 @@ ggplot(melt(
     attributes(mat.ranking.bm_res[["assignment_dem"]])[[paste(var, ".rel", sep = "")]]
     ), 
   varnames=c(var, 'Cluster')), 
-  aes_string(var,"value",fill="Cluster"))+
-  geom_bar(position="dodge",
+  aes_string("Cluster","value",fill=var))+
+  geom_bar(position="fill",
            stat="identity"
-           )+
+  )+
   theme_minimal() +
   theme(plot.title = element_text(hjust = 0.5, face="bold"))+
-  scale_fill_manual(values=c("#34495e", "#3498db", "#1abc9c", "#2ecc71", "#f1c40f", "#e67e22", "#e74c3c"))+
+  # scale_fill_manual(values=c("#34495e", "#3498db", "#1abc9c", "#2ecc71", "#f1c40f", "#e67e22", "#e74c3c"))+
   labs(title = str_to_title(var))+
-  xlab(str_to_title(var))+
+  xlab("Cluster")+
   ylab("Percentage")
 
 rm(var)
@@ -302,15 +302,15 @@ ggplot(melt(
     attributes(mat.ranking.bm_res[["assignment_dem"]])[[paste(var, ".rel", sep = "")]]
     ), 
   varnames=c(var, 'Cluster')), 
-  aes_string(var,"value",fill="Cluster"))+
-  geom_bar(position="dodge",
+  aes_string("Cluster","value",fill=var))+
+  geom_bar(position="fill",
            stat="identity"
-           )+
+  )+
   theme_minimal() +
   theme(plot.title = element_text(hjust = 0.5, face="bold"))+
   scale_fill_manual(values=c("#34495e", "#3498db", "#1abc9c", "#2ecc71", "#f1c40f", "#e67e22", "#e74c3c"))+
   labs(title = str_to_title(var))+
-  xlab(str_to_title(var))+
+  xlab("Cluster")+
   ylab("Percentage")
 
 rm(var)
@@ -332,15 +332,15 @@ ggplot(melt(
     attributes(mat.ranking.bm_res[["assignment_dem"]])[[paste(var, ".rel", sep = "")]]
     ), 
   varnames=c(var, 'Cluster')), 
-  aes_string(var,"value",fill="Cluster"))+
-  geom_bar(position="dodge",
+  aes_string("Cluster","value",fill=var))+
+  geom_bar(position="fill",
            stat="identity"
-           )+
+  )+
   theme_minimal() +
   theme(plot.title = element_text(hjust = 0.5, face="bold"))+
-  scale_fill_manual(values=c("#34495e", "#3498db", "#1abc9c", "#2ecc71", "#f1c40f", "#e67e22", "#e74c3c"))+
+  scale_fill_manual(values=c("#ecf0f1", "#e74c3c", "#27ae60"))+
   labs(title = str_to_title(var))+
-  xlab(str_to_title(var))+
+  xlab("Cluster")+
   ylab("Percentage")
 
 rm(var)
@@ -362,15 +362,15 @@ ggplot(melt(
     attributes(mat.ranking.bm_res[["assignment_dem"]])[[paste(var, ".rel", sep = "")]]
     ), 
   varnames=c(var, 'Cluster')), 
-  aes_string(var,"value",fill="Cluster"))+
-  geom_bar(position="dodge",
+  aes_string("Cluster","value",fill=var))+
+  geom_bar(position="fill",
            stat="identity"
-           )+
+  )+
   theme_minimal() +
   theme(plot.title = element_text(hjust = 0.5, face="bold"))+
   scale_fill_manual(values=c("#34495e", "#3498db", "#1abc9c", "#2ecc71", "#f1c40f", "#e67e22", "#e74c3c"))+
   labs(title = str_to_title(var))+
-  xlab(str_to_title(var))+
+  xlab("Cluster")+
   ylab("Percentage")
 
 rm(var)
@@ -392,15 +392,15 @@ ggplot(melt(
     attributes(mat.ranking.bm_res[["assignment_dem"]])[[paste(var, ".rel", sep = "")]]
     ), 
   varnames=c(var, 'Cluster')), 
-  aes_string(var,"value",fill="Cluster"))+
-  geom_bar(position="dodge",
+  aes_string("Cluster","value",fill=var))+
+  geom_bar(position="fill",
            stat="identity"
-           )+
+  )+
   theme_minimal() +
   theme(plot.title = element_text(hjust = 0.5, face="bold"))+
-  scale_fill_manual(values=c("#34495e", "#3498db", "#1abc9c", "#2ecc71", "#f1c40f", "#e67e22", "#e74c3c"))+
+  scale_fill_manual(values=c("#b83578", "#31aad9", "#ecf0f1"))+
   labs(title = str_to_title(var))+
-  xlab(str_to_title(var))+
+  xlab("Cluster")+
   ylab("Percentage")
 
 rm(var)
@@ -422,15 +422,15 @@ ggplot(melt(
     attributes(mat.ranking.bm_res[["assignment_dem"]])[[paste(var, ".rel", sep = "")]]
     ), 
   varnames=c(var, 'Cluster')), 
-  aes_string(var,"value",fill="Cluster"))+
-  geom_bar(position="dodge",
+  aes_string("Cluster","value",fill=var))+
+  geom_bar(position="fill",
            stat="identity"
-           )+
+  )+
   theme_minimal() +
   theme(plot.title = element_text(hjust = 0.5, face="bold"))+
   scale_fill_manual(values=c("#34495e", "#3498db", "#1abc9c", "#2ecc71", "#f1c40f", "#e67e22", "#e74c3c"))+
   labs(title = str_to_title(var))+
-  xlab(str_to_title(var))+
+  xlab("Cluster")+
   ylab("Percentage")
 
 rm(var)
